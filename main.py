@@ -7,6 +7,17 @@ from words import WORDS_SET, LETTER_DIST
 os.environ['SDL_VIDEO_CENTERED'] = '1'
 pygame.init()
 
+from pygame.locals import *
+import time
+sysfont = pygame.font.get_default_font()
+print('system font :', sysfont)
+
+t0 = time.time()
+print('time needed for Font creation :', time.time()-t0)
+font = pygame.font.SysFont(None, 48)
+BLUE = (0, 0, 255)
+
+
 SIZE = WIDTH, DEPTH = 500, 1000
 SQ_IMG_SIZE = 100
 
@@ -17,7 +28,7 @@ BOARD_RECT = np.empty((10, 5), dtype=object)
 BOARD_INDICIES = list(np.ndindex(10, 5))
 
 HOR_MOVE = np.array([SQ_IMG_SIZE, 0])
-VERT_MOVE = np.array([0, 2])
+VERT_MOVE = np.array([0, 1])
 
 SCREEN = pygame.display.set_mode(SIZE)
 CLOCK = pygame.time.Clock()
@@ -25,6 +36,9 @@ CLOCK = pygame.time.Clock()
 BLACK = (0, 0, 0)
 
 WORD_SIZE = 5
+NEXT_LETTERS_COUNT = 4
+
+SCORE = 0
 
 # get letter images from all_letters, store in dict in format "letter: image"
 ss = spritesheet('all_letters.png')
@@ -48,7 +62,7 @@ def make_new(object, topleft=(200, 50)):
 
 
 past_letter_rects = []
-NEXT_LETTERS = [rand_letter(LETTER_DIST) for _ in range(6)]
+NEXT_LETTERS = [rand_letter(LETTER_DIST) for _ in range(NEXT_LETTERS_COUNT)]
 CURRENT_LETTER = NEXT_LETTERS[-1]
 CURRENT_LETTER_SPRITE = SPRITES_LETTER[CURRENT_LETTER]
 CURRENT_LETTER_RECT = make_new(CURRENT_LETTER_SPRITE)
@@ -86,13 +100,16 @@ while running:
             elif event.key == pygame.K_SPACE or event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT:
                 # rotate current letter
                 current_topleft = CURRENT_LETTER_RECT.topleft
-                NEXT_LETTERS.insert(0, NEXT_LETTERS.pop())
+                NEXT_LETTERS.pop()
+                NEXT_LETTERS.insert(0, rand_letter(LETTER_DIST))
                 CURRENT_LETTER = NEXT_LETTERS[-1]
                 CURRENT_LETTER_SPRITE = SPRITES_LETTER[CURRENT_LETTER]
                 CURRENT_LETTER_RECT = make_new(CURRENT_LETTER_SPRITE, topleft=current_topleft)
 
     CURRENT_LETTER_RECT = CURRENT_LETTER_RECT.move(VERT_MOVE)
     SCREEN.fill(BLACK)
+    score_text = font.render(f'Score: {SCORE}', True, BLUE)
+    SCREEN.blit(score_text, (325, 0))
 
     # next letters logic
     for i, next_letter in enumerate(NEXT_LETTERS[:-1]):
@@ -155,7 +172,8 @@ while running:
                 if potential_word in WORDS_SET:
                 # if True:  # for debugging
                     # print('COL WINNER!!!')
-
+                    SCORE += WORD_SIZE
+                    VERT_MOVE *= (SCORE // 10) + 1
                     # clear word in col
                     BOARD_GAME[word_start_index:word_start_index+WORD_SIZE, col_num] = 0
                     BOARD_LETTER[word_start_index:word_start_index+WORD_SIZE, col_num] = ''
@@ -177,6 +195,8 @@ while running:
             if potential_word in WORDS_SET:
             # if True:  # for debugging
                 # print('ROW WINNER!!!')
+                SCORE += WORD_SIZE
+                VERT_MOVE *= (SCORE // 10) + 1
 
                 # clear row
                 BOARD_GAME[row_num, :] = 0
@@ -195,6 +215,13 @@ while running:
         running = False
         break
 
+    # simulate performance hit of more complicated word checks
+    for i in BOARD_GAME:
+        for j in BOARD_GAME[i]:
+            temp = i,j
+    for i in BOARD_GAME:
+        for j in BOARD_GAME[:,i]:
+            temp = i,j
 
     for board_index in BOARD_INDICIES:
         if BOARD_GAME[board_index] == 1:
